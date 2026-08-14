@@ -52,16 +52,23 @@ public enum LoadType
 public unsafe abstract class Event
 {
     private readonly void* _ptr;
+    private string _eventName = "";
 
     internal Event(IntPtr ptr) => _ptr = (void*)ptr;
     internal void* NativePtr => _ptr;
+
+    /// <summary>Concrete event class name, used by multi-type native accessors.</summary>
+    internal string EventName
+    {
+        set => _eventName = value;
+    }
 
     private static Bridge.Table* T => Bridge.Raw;
 
     public bool IsCancelled
     {
-        get => T->EventIsCancelled(_ptr);
-        set => T->EventSetCancelled(_ptr, value);
+        get => Bridge.CallNameBool(T->EventIsCancelled, _ptr, _eventName);
+        set => Bridge.CallName2(T->EventSetCancelled, _ptr, _eventName, value);
     }
 
     public void Cancel() => IsCancelled = true;
@@ -70,7 +77,7 @@ public unsafe abstract class Event
     {
         get
         {
-            var p = T->EventGetPlayer(_ptr);
+            var p = Bridge.CallName(T->EventGetPlayer, _ptr, _eventName);
             return p == null ? null : new Player((IntPtr)p);
         }
     }
@@ -79,7 +86,7 @@ public unsafe abstract class Event
     {
         get
         {
-            var a = T->EventGetActor(_ptr);
+            var a = Bridge.CallName(T->EventGetActor, _ptr, _eventName);
             return a == null ? null : new Actor((IntPtr)a);
         }
     }
@@ -412,7 +419,7 @@ public sealed unsafe class PlayerBedEnterEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PlayerBedEnterEvent(IntPtr ptr) : base(ptr) { }
 
-    public Block Bed => new((IntPtr)T->BedGetBed(NativePtr));
+    public Block Bed => new((IntPtr)Bridge.CallName(T->BedGetBed, NativePtr, "PlayerBedEnterEvent"));
 }
 
 public sealed unsafe class PlayerBedLeaveEvent : Event
@@ -420,7 +427,7 @@ public sealed unsafe class PlayerBedLeaveEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PlayerBedLeaveEvent(IntPtr ptr) : base(ptr) { }
 
-    public Block Bed => new((IntPtr)T->BedGetBed(NativePtr));
+    public Block Bed => new((IntPtr)Bridge.CallName(T->BedGetBed, NativePtr, "PlayerBedLeaveEvent"));
 }
 
 public sealed unsafe class PlayerDimensionChangeEvent : Event
@@ -472,7 +479,7 @@ public sealed unsafe class ActorDamageEvent : Event
         set => T->ActorDamageSetDamage(NativePtr, value);
     }
 
-    public DamageSource DamageSource => new((IntPtr)T->EventGetDamageSource(NativePtr));
+    public DamageSource DamageSource => new((IntPtr)Bridge.CallName(T->EventGetDamageSource, NativePtr, "ActorDamageEvent"));
 }
 
 public sealed unsafe class ActorDeathEvent : Event
@@ -480,7 +487,7 @@ public sealed unsafe class ActorDeathEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal ActorDeathEvent(IntPtr ptr) : base(ptr) { }
 
-    public DamageSource DamageSource => new((IntPtr)T->EventGetDamageSource(NativePtr));
+    public DamageSource DamageSource => new((IntPtr)Bridge.CallName(T->EventGetDamageSource, NativePtr, "ActorDeathEvent"));
 }
 
 public sealed unsafe class ActorExplodeEvent : Event
@@ -609,7 +616,7 @@ public sealed unsafe class BlockFormEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal BlockFormEvent(IntPtr ptr) : base(ptr) { }
 
-    public BlockState NewState => new((IntPtr)T->GrowGetNewState(NativePtr));
+    public BlockState NewState => new((IntPtr)Bridge.CallName(T->GrowGetNewState, NativePtr, "BlockFormEvent"));
 }
 
 public sealed unsafe class BlockGrowEvent : Event
@@ -617,7 +624,7 @@ public sealed unsafe class BlockGrowEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal BlockGrowEvent(IntPtr ptr) : base(ptr) { }
 
-    public BlockState NewState => new((IntPtr)T->GrowGetNewState(NativePtr));
+    public BlockState NewState => new((IntPtr)Bridge.CallName(T->GrowGetNewState, NativePtr, "BlockGrowEvent"));
 }
 
 public sealed unsafe class BlockFromToEvent : Event
@@ -656,9 +663,9 @@ public sealed unsafe class ChunkLoadEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal ChunkLoadEvent(IntPtr ptr) : base(ptr) { }
 
-    public int X => T->ChunkGetX(NativePtr);
-    public int Z => T->ChunkGetZ(NativePtr);
-    public string DimensionName => Bridge.Str(T->ChunkGetDimensionName(NativePtr));
+    public int X => Bridge.CallNameInt(T->ChunkGetX, NativePtr, "ChunkLoadEvent");
+    public int Z => Bridge.CallNameInt(T->ChunkGetZ, NativePtr, "ChunkLoadEvent");
+    public string DimensionName => Bridge.Str(Bridge.CallNameStr(T->ChunkGetDimensionName, NativePtr, "ChunkLoadEvent"));
 }
 
 public sealed unsafe class ChunkUnloadEvent : Event
@@ -666,9 +673,9 @@ public sealed unsafe class ChunkUnloadEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal ChunkUnloadEvent(IntPtr ptr) : base(ptr) { }
 
-    public int X => T->ChunkGetX(NativePtr);
-    public int Z => T->ChunkGetZ(NativePtr);
-    public string DimensionName => Bridge.Str(T->ChunkGetDimensionName(NativePtr));
+    public int X => Bridge.CallNameInt(T->ChunkGetX, NativePtr, "ChunkUnloadEvent");
+    public int Z => Bridge.CallNameInt(T->ChunkGetZ, NativePtr, "ChunkUnloadEvent");
+    public string DimensionName => Bridge.Str(Bridge.CallNameStr(T->ChunkGetDimensionName, NativePtr, "ChunkUnloadEvent"));
 }
 
 // ==================== Server events ====================
@@ -744,14 +751,14 @@ public sealed unsafe class PacketReceiveEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PacketReceiveEvent(IntPtr ptr) : base(ptr) { }
 
-    public int PacketId => T->PacketGetId(NativePtr);
+    public int PacketId => Bridge.CallNameInt(T->PacketGetId, NativePtr, "PacketReceiveEvent");
 
     public byte[] Payload
     {
         get
         {
             int len = 0;
-            var data = T->PacketGetPayload(NativePtr, &len);
+            var data = Bridge.CallNameStr2(T->PacketGetPayload, NativePtr, "PacketReceiveEvent", &len);
             var result = new byte[len];
             if (len > 0)
             {
@@ -763,7 +770,7 @@ public sealed unsafe class PacketReceiveEvent : Event
         {
             fixed (byte* p = value)
             {
-                T->PacketSetPayload(NativePtr, p, value.Length);
+                Bridge.CallName3(T->PacketSetPayload, NativePtr, "PacketReceiveEvent", p, value.Length);
             }
         }
     }
@@ -772,13 +779,13 @@ public sealed unsafe class PacketReceiveEvent : Event
     {
         get
         {
-            var p = T->PacketGetPlayer(NativePtr);
+            var p = Bridge.CallName(T->PacketGetPlayer, NativePtr, "PacketReceiveEvent");
             return p == null ? null : new Player((IntPtr)p);
         }
     }
 
-    public string Address => Bridge.Str(T->PacketGetAddress(NativePtr));
-    public int SubClientId => T->PacketGetSubClientId(NativePtr);
+    public string Address => Bridge.Str(Bridge.CallNameStr(T->PacketGetAddress, NativePtr, "PacketReceiveEvent"));
+    public int SubClientId => Bridge.CallNameInt(T->PacketGetSubClientId, NativePtr, "PacketReceiveEvent");
 }
 
 public sealed unsafe class PacketSendEvent : Event
@@ -786,14 +793,14 @@ public sealed unsafe class PacketSendEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PacketSendEvent(IntPtr ptr) : base(ptr) { }
 
-    public int PacketId => T->PacketGetId(NativePtr);
+    public int PacketId => Bridge.CallNameInt(T->PacketGetId, NativePtr, "PacketSendEvent");
 
     public byte[] Payload
     {
         get
         {
             int len = 0;
-            var data = T->PacketGetPayload(NativePtr, &len);
+            var data = Bridge.CallNameStr2(T->PacketGetPayload, NativePtr, "PacketSendEvent", &len);
             var result = new byte[len];
             if (len > 0)
             {
@@ -805,7 +812,7 @@ public sealed unsafe class PacketSendEvent : Event
         {
             fixed (byte* p = value)
             {
-                T->PacketSetPayload(NativePtr, p, value.Length);
+                Bridge.CallName3(T->PacketSetPayload, NativePtr, "PacketSendEvent", p, value.Length);
             }
         }
     }
@@ -814,13 +821,13 @@ public sealed unsafe class PacketSendEvent : Event
     {
         get
         {
-            var p = T->PacketGetPlayer(NativePtr);
+            var p = Bridge.CallName(T->PacketGetPlayer, NativePtr, "PacketSendEvent");
             return p == null ? null : new Player((IntPtr)p);
         }
     }
 
-    public string Address => Bridge.Str(T->PacketGetAddress(NativePtr));
-    public int SubClientId => T->PacketGetSubClientId(NativePtr);
+    public string Address => Bridge.Str(Bridge.CallNameStr(T->PacketGetAddress, NativePtr, "PacketSendEvent"));
+    public int SubClientId => Bridge.CallNameInt(T->PacketGetSubClientId, NativePtr, "PacketSendEvent");
 }
 
 public sealed unsafe class PluginEnableEvent : Event
@@ -828,7 +835,7 @@ public sealed unsafe class PluginEnableEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PluginEnableEvent(IntPtr ptr) : base(ptr) { }
 
-    public string PluginName => Bridge.Str(T->PluginEventGetPluginName(NativePtr));
+    public string PluginName => Bridge.Str(Bridge.CallNameStr(T->PluginEventGetPluginName, NativePtr, "PluginEnableEvent"));
 }
 
 public sealed unsafe class PluginDisableEvent : Event
@@ -836,7 +843,7 @@ public sealed unsafe class PluginDisableEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PluginDisableEvent(IntPtr ptr) : base(ptr) { }
 
-    public string PluginName => Bridge.Str(T->PluginEventGetPluginName(NativePtr));
+    public string PluginName => Bridge.Str(Bridge.CallNameStr(T->PluginEventGetPluginName, NativePtr, "PluginDisableEvent"));
 }
 
 public sealed unsafe class ScriptMessageEvent : Event
@@ -877,7 +884,7 @@ internal static class EventFactory
 {
     internal static Event? Create(string eventName, IntPtr eventPtr)
     {
-        return eventName switch
+        Event? e = eventName switch
         {
             "PlayerJoinEvent" => new PlayerJoinEvent(eventPtr),
             "PlayerQuitEvent" => new PlayerQuitEvent(eventPtr),
@@ -936,6 +943,11 @@ internal static class EventFactory
             "WeatherChangeEvent" => new WeatherChangeEvent(eventPtr),
             _ => null,
         };
+        if (e != null)
+        {
+            e.EventName = eventName;
+        }
+        return e;
     }
 }
 

@@ -80,10 +80,10 @@ internal static unsafe class Bridge
         public delegate* unmanaged[Cdecl]<void*, void*, byte*, bool> ServerDispatchCommand;
 
         // ---- events: common ----
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*> EventGetPlayer;
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*> EventGetActor;
-        public delegate* unmanaged[Cdecl]<void*, byte*, bool> EventIsCancelled;
-        public delegate* unmanaged[Cdecl]<void*, byte*, bool, void> EventSetCancelled;
+        public delegate* unmanaged[Cdecl]<void*, int, void*> EventGetPlayer;
+        public delegate* unmanaged[Cdecl]<void*, int, void*> EventGetActor;
+        public delegate* unmanaged[Cdecl]<void*, int, bool> EventIsCancelled;
+        public delegate* unmanaged[Cdecl]<void*, int, bool, void> EventSetCancelled;
 
         // ---- events: chat/command ----
         public delegate* unmanaged[Cdecl]<void*, byte*> ChatGetMessage;
@@ -121,7 +121,7 @@ internal static unsafe class Bridge
         // ---- events: actor ----
         public delegate* unmanaged[Cdecl]<void*, float> ActorDamageGetDamage;
         public delegate* unmanaged[Cdecl]<void*, float, void> ActorDamageSetDamage;
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*> EventGetDamageSource;
+        public delegate* unmanaged[Cdecl]<void*, int, void*> EventGetDamageSource;
         public delegate* unmanaged[Cdecl]<void*, float*, void> ActorExplodeGetLocation;
         public delegate* unmanaged[Cdecl]<void*, int> ActorExplodeGetBlockCount;
         public delegate* unmanaged[Cdecl]<void*, int, void*> ActorExplodeGetBlock;
@@ -132,7 +132,7 @@ internal static unsafe class Bridge
         // ---- events: player ----
         public delegate* unmanaged[Cdecl]<void*, byte*> DeathGetMessage;
         public delegate* unmanaged[Cdecl]<void*, byte*, void> DeathSetMessage;
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*> BedGetBed;
+        public delegate* unmanaged[Cdecl]<void*, int, void*> BedGetBed;
         public delegate* unmanaged[Cdecl]<void*, byte*> DimChangeGetFrom;
         public delegate* unmanaged[Cdecl]<void*, byte*> DimChangeGetTo;
         public delegate* unmanaged[Cdecl]<void*, void*> DropGetItem;
@@ -163,28 +163,28 @@ internal static unsafe class Bridge
         public delegate* unmanaged[Cdecl]<void*, void*> CookGetResult;
         public delegate* unmanaged[Cdecl]<void*, int> BlockExplodeGetBlockCount;
         public delegate* unmanaged[Cdecl]<void*, int, void*> BlockExplodeGetBlock;
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*> GrowGetNewState;
+        public delegate* unmanaged[Cdecl]<void*, int, void*> GrowGetNewState;
         public delegate* unmanaged[Cdecl]<void*, void*> FromToGetToBlock;
         public delegate* unmanaged[Cdecl]<void*, int> PistonGetDirection;
         public delegate* unmanaged[Cdecl]<void*, void*> PlaceGetPlacedState;
         public delegate* unmanaged[Cdecl]<void*, void*> PlaceGetAgainst;
 
         // ---- events: chunk ----
-        public delegate* unmanaged[Cdecl]<void*, byte*, int> ChunkGetX;
-        public delegate* unmanaged[Cdecl]<void*, byte*, int> ChunkGetZ;
-        public delegate* unmanaged[Cdecl]<void*, byte*, byte*> ChunkGetDimensionName;
+        public delegate* unmanaged[Cdecl]<void*, int, int> ChunkGetX;
+        public delegate* unmanaged[Cdecl]<void*, int, int> ChunkGetZ;
+        public delegate* unmanaged[Cdecl]<void*, int, byte*> ChunkGetDimensionName;
 
         // ---- events: server ----
         public delegate* unmanaged[Cdecl]<void*, byte*> BroadcastGetMessage;
         public delegate* unmanaged[Cdecl]<void*, byte*, void> BroadcastSetMessage;
         public delegate* unmanaged[Cdecl]<void*, int> BroadcastGetRecipientCount;
-        public delegate* unmanaged[Cdecl]<void*, byte*, int> PacketGetId;
-        public delegate* unmanaged[Cdecl]<void*, byte*, int*, byte*> PacketGetPayload;
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*, int, void> PacketSetPayload;
-        public delegate* unmanaged[Cdecl]<void*, byte*, void*> PacketGetPlayer;
-        public delegate* unmanaged[Cdecl]<void*, byte*, byte*> PacketGetAddress;
-        public delegate* unmanaged[Cdecl]<void*, byte*, int> PacketGetSubClientId;
-        public delegate* unmanaged[Cdecl]<void*, byte*, byte*> PluginEventGetPluginName;
+        public delegate* unmanaged[Cdecl]<void*, int, int> PacketGetId;
+        public delegate* unmanaged[Cdecl]<void*, int, int*, byte*> PacketGetPayload;
+        public delegate* unmanaged[Cdecl]<void*, int, void*, int, void> PacketSetPayload;
+        public delegate* unmanaged[Cdecl]<void*, int, void*> PacketGetPlayer;
+        public delegate* unmanaged[Cdecl]<void*, int, byte*> PacketGetAddress;
+        public delegate* unmanaged[Cdecl]<void*, int, int> PacketGetSubClientId;
+        public delegate* unmanaged[Cdecl]<void*, int, byte*> PluginEventGetPluginName;
         public delegate* unmanaged[Cdecl]<void*, byte*> ScriptGetMessageId;
         public delegate* unmanaged[Cdecl]<void*, byte*> ScriptGetMessage;
         public delegate* unmanaged[Cdecl]<void*, byte*> ScriptGetSenderName;
@@ -508,75 +508,34 @@ internal static unsafe class Bridge
         }
     }
 
-    // ---- event-name marshalling helpers ----
-    // Multi-type event accessors receive the concrete event class name from the
-    // managed side instead of relying on native RTTI (see bridge.cpp).
+    // ---- event-kind marshalling helpers ----
+    // Multi-type event accessors receive the concrete event kind (resolved once
+    // per event instance by EventFactory) instead of relying on native RTTI —
+    // typeinfo is not shared across DSOs on Linux (see bridge.cpp).
 
-    internal static void* CallName(delegate* unmanaged[Cdecl]<void*, byte*, void*> fn, void* obj, string name)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            return fn(obj, p);
-        }
-    }
+    internal static void* CallKindPtr(delegate* unmanaged[Cdecl]<void*, int, void*> fn, void* obj, EventKind kind)
+        => fn(obj, (int)kind);
 
-    internal static bool CallNameBool(delegate* unmanaged[Cdecl]<void*, byte*, bool> fn, void* obj, string name)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            return fn(obj, p);
-        }
-    }
+    internal static bool CallKindBool(delegate* unmanaged[Cdecl]<void*, int, bool> fn, void* obj, EventKind kind)
+        => fn(obj, (int)kind);
 
-    internal static void CallName2(delegate* unmanaged[Cdecl]<void*, byte*, bool, void> fn, void* obj, string name,
+    internal static void CallKind2(delegate* unmanaged[Cdecl]<void*, int, bool, void> fn, void* obj, EventKind kind,
                                    bool v)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            fn(obj, p, v);
-        }
-    }
+        => fn(obj, (int)kind, v);
 
-    internal static int CallNameInt(delegate* unmanaged[Cdecl]<void*, byte*, int> fn, void* obj, string name)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            return fn(obj, p);
-        }
-    }
+    internal static int CallKindInt(delegate* unmanaged[Cdecl]<void*, int, int> fn, void* obj, EventKind kind)
+        => fn(obj, (int)kind);
 
-    internal static byte* CallNameStr(delegate* unmanaged[Cdecl]<void*, byte*, byte*> fn, void* obj, string name)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            return fn(obj, p);
-        }
-    }
+    internal static byte* CallKindStr(delegate* unmanaged[Cdecl]<void*, int, byte*> fn, void* obj, EventKind kind)
+        => fn(obj, (int)kind);
 
-    internal static byte* CallNameStr2(delegate* unmanaged[Cdecl]<void*, byte*, int*, byte*> fn, void* obj, string name,
-                                       int* len)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            return fn(obj, p, len);
-        }
-    }
+    internal static byte* CallKindStr2(delegate* unmanaged[Cdecl]<void*, int, int*, byte*> fn, void* obj,
+                                       EventKind kind, int* len)
+        => fn(obj, (int)kind, len);
 
-    internal static void CallName3(delegate* unmanaged[Cdecl]<void*, byte*, void*, int, void> fn, void* obj,
-                                   string name, void* data, int len)
-    {
-        var buf = ToUtf8(name);
-        fixed (byte* p = buf)
-        {
-            fn(obj, p, data, len);
-        }
-    }
+    internal static void CallKind3(delegate* unmanaged[Cdecl]<void*, int, void*, int, void> fn, void* obj,
+                                   EventKind kind, void* data, int len)
+        => fn(obj, (int)kind, data, len);
 
     internal static void CallHostPort(delegate* unmanaged[Cdecl]<void*, byte*, int, void> fn, void* obj, string host,
                                       int port)

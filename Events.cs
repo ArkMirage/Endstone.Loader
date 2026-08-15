@@ -48,27 +48,92 @@ public enum LoadType
     Reload,
 }
 
+/// <summary>
+/// Identifies the concrete event class. The dispatcher resolves the event name
+/// to a kind exactly once per event instance; native multi-type accessors
+/// switch on this instead of classifying strings (see bridge.h EventKind).
+/// Values MUST stay in sync with endstone_dotnet_loader/include/bridge.h.
+/// </summary>
+internal enum EventKind
+{
+    PlayerJoinEvent = 0,
+    PlayerQuitEvent = 1,
+    PlayerLoginEvent = 2,
+    PlayerChatEvent = 3,
+    PlayerCommandEvent = 4,
+    PlayerMoveEvent = 5,
+    PlayerTeleportEvent = 6,
+    PlayerPortalEvent = 7,
+    PlayerDeathEvent = 8,
+    PlayerInteractEvent = 9,
+    PlayerInteractActorEvent = 10,
+    PlayerRespawnEvent = 11,
+    PlayerDropItemEvent = 12,
+    PlayerGameModeChangeEvent = 13,
+    PlayerItemHeldEvent = 14,
+    PlayerItemConsumeEvent = 15,
+    PlayerKickEvent = 16,
+    PlayerPickupItemEvent = 17,
+    PlayerJumpEvent = 18,
+    PlayerEmoteEvent = 19,
+    PlayerBedEnterEvent = 20,
+    PlayerBedLeaveEvent = 21,
+    PlayerDimensionChangeEvent = 22,
+    PlayerSkinChangeEvent = 23,
+    ActorDamageEvent = 24,
+    ActorDeathEvent = 25,
+    ActorExplodeEvent = 26,
+    ActorKnockbackEvent = 27,
+    ActorTeleportEvent = 28,
+    ActorSpawnEvent = 29,
+    ActorRemoveEvent = 30,
+    BlockBreakEvent = 31,
+    BlockPlaceEvent = 32,
+    BlockCookEvent = 33,
+    BlockExplodeEvent = 34,
+    BlockFormEvent = 35,
+    BlockGrowEvent = 36,
+    BlockFromToEvent = 37,
+    BlockPistonExtendEvent = 38,
+    BlockPistonRetractEvent = 39,
+    LeavesDecayEvent = 40,
+    ChunkLoadEvent = 41,
+    ChunkUnloadEvent = 42,
+    ServerCommandEvent = 43,
+    ServerLoadEvent = 44,
+    BroadcastMessageEvent = 45,
+    ServerListPingEvent = 46,
+    PacketReceiveEvent = 47,
+    PacketSendEvent = 48,
+    PluginEnableEvent = 49,
+    PluginDisableEvent = 50,
+    ScriptMessageEvent = 51,
+    MapInitializeEvent = 52,
+    ThunderChangeEvent = 53,
+    WeatherChangeEvent = 54,
+}
+
 /// <summary>Base class for event wrappers.</summary>
 public unsafe abstract class Event
 {
     private readonly void* _ptr;
-    private string _eventName = "";
+    private EventKind _kind;
 
     internal Event(IntPtr ptr) => _ptr = (void*)ptr;
     internal void* NativePtr => _ptr;
 
-    /// <summary>Concrete event class name, used by multi-type native accessors.</summary>
-    internal string EventName
+    /// <summary>Concrete event kind, set by the factory; used by multi-type native accessors.</summary>
+    internal EventKind Kind
     {
-        set => _eventName = value;
+        set => _kind = value;
     }
 
     private static Bridge.Table* T => Bridge.Raw;
 
     public bool IsCancelled
     {
-        get => Bridge.CallNameBool(T->EventIsCancelled, _ptr, _eventName);
-        set => Bridge.CallName2(T->EventSetCancelled, _ptr, _eventName, value);
+        get => Bridge.CallKindBool(T->EventIsCancelled, _ptr, _kind);
+        set => Bridge.CallKind2(T->EventSetCancelled, _ptr, _kind, value);
     }
 
     public void Cancel() => IsCancelled = true;
@@ -77,7 +142,7 @@ public unsafe abstract class Event
     {
         get
         {
-            var p = Bridge.CallName(T->EventGetPlayer, _ptr, _eventName);
+            var p = Bridge.CallKindPtr(T->EventGetPlayer, _ptr, _kind);
             return p == null ? null : new Player((IntPtr)p);
         }
     }
@@ -86,7 +151,7 @@ public unsafe abstract class Event
     {
         get
         {
-            var a = Bridge.CallName(T->EventGetActor, _ptr, _eventName);
+            var a = Bridge.CallKindPtr(T->EventGetActor, _ptr, _kind);
             return a == null ? null : new Actor((IntPtr)a);
         }
     }
@@ -419,7 +484,7 @@ public sealed unsafe class PlayerBedEnterEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PlayerBedEnterEvent(IntPtr ptr) : base(ptr) { }
 
-    public Block Bed => new((IntPtr)Bridge.CallName(T->BedGetBed, NativePtr, "PlayerBedEnterEvent"));
+    public Block Bed => new((IntPtr)Bridge.CallKindPtr(T->BedGetBed, NativePtr, EventKind.PlayerBedEnterEvent));
 }
 
 public sealed unsafe class PlayerBedLeaveEvent : Event
@@ -427,7 +492,7 @@ public sealed unsafe class PlayerBedLeaveEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PlayerBedLeaveEvent(IntPtr ptr) : base(ptr) { }
 
-    public Block Bed => new((IntPtr)Bridge.CallName(T->BedGetBed, NativePtr, "PlayerBedLeaveEvent"));
+    public Block Bed => new((IntPtr)Bridge.CallKindPtr(T->BedGetBed, NativePtr, EventKind.PlayerBedLeaveEvent));
 }
 
 public sealed unsafe class PlayerDimensionChangeEvent : Event
@@ -479,7 +544,7 @@ public sealed unsafe class ActorDamageEvent : Event
         set => T->ActorDamageSetDamage(NativePtr, value);
     }
 
-    public DamageSource DamageSource => new((IntPtr)Bridge.CallName(T->EventGetDamageSource, NativePtr, "ActorDamageEvent"));
+    public DamageSource DamageSource => new((IntPtr)Bridge.CallKindPtr(T->EventGetDamageSource, NativePtr, EventKind.ActorDamageEvent));
 }
 
 public sealed unsafe class ActorDeathEvent : Event
@@ -487,7 +552,7 @@ public sealed unsafe class ActorDeathEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal ActorDeathEvent(IntPtr ptr) : base(ptr) { }
 
-    public DamageSource DamageSource => new((IntPtr)Bridge.CallName(T->EventGetDamageSource, NativePtr, "ActorDeathEvent"));
+    public DamageSource DamageSource => new((IntPtr)Bridge.CallKindPtr(T->EventGetDamageSource, NativePtr, EventKind.ActorDeathEvent));
 }
 
 public sealed unsafe class ActorExplodeEvent : Event
@@ -616,7 +681,7 @@ public sealed unsafe class BlockFormEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal BlockFormEvent(IntPtr ptr) : base(ptr) { }
 
-    public BlockState NewState => new((IntPtr)Bridge.CallName(T->GrowGetNewState, NativePtr, "BlockFormEvent"));
+    public BlockState NewState => new((IntPtr)Bridge.CallKindPtr(T->GrowGetNewState, NativePtr, EventKind.BlockFormEvent));
 }
 
 public sealed unsafe class BlockGrowEvent : Event
@@ -624,7 +689,7 @@ public sealed unsafe class BlockGrowEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal BlockGrowEvent(IntPtr ptr) : base(ptr) { }
 
-    public BlockState NewState => new((IntPtr)Bridge.CallName(T->GrowGetNewState, NativePtr, "BlockGrowEvent"));
+    public BlockState NewState => new((IntPtr)Bridge.CallKindPtr(T->GrowGetNewState, NativePtr, EventKind.BlockGrowEvent));
 }
 
 public sealed unsafe class BlockFromToEvent : Event
@@ -663,9 +728,9 @@ public sealed unsafe class ChunkLoadEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal ChunkLoadEvent(IntPtr ptr) : base(ptr) { }
 
-    public int X => Bridge.CallNameInt(T->ChunkGetX, NativePtr, "ChunkLoadEvent");
-    public int Z => Bridge.CallNameInt(T->ChunkGetZ, NativePtr, "ChunkLoadEvent");
-    public string DimensionName => Bridge.Str(Bridge.CallNameStr(T->ChunkGetDimensionName, NativePtr, "ChunkLoadEvent"));
+    public int X => Bridge.CallKindInt(T->ChunkGetX, NativePtr, EventKind.ChunkLoadEvent);
+    public int Z => Bridge.CallKindInt(T->ChunkGetZ, NativePtr, EventKind.ChunkLoadEvent);
+    public string DimensionName => Bridge.Str(Bridge.CallKindStr(T->ChunkGetDimensionName, NativePtr, EventKind.ChunkLoadEvent));
 }
 
 public sealed unsafe class ChunkUnloadEvent : Event
@@ -673,9 +738,9 @@ public sealed unsafe class ChunkUnloadEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal ChunkUnloadEvent(IntPtr ptr) : base(ptr) { }
 
-    public int X => Bridge.CallNameInt(T->ChunkGetX, NativePtr, "ChunkUnloadEvent");
-    public int Z => Bridge.CallNameInt(T->ChunkGetZ, NativePtr, "ChunkUnloadEvent");
-    public string DimensionName => Bridge.Str(Bridge.CallNameStr(T->ChunkGetDimensionName, NativePtr, "ChunkUnloadEvent"));
+    public int X => Bridge.CallKindInt(T->ChunkGetX, NativePtr, EventKind.ChunkUnloadEvent);
+    public int Z => Bridge.CallKindInt(T->ChunkGetZ, NativePtr, EventKind.ChunkUnloadEvent);
+    public string DimensionName => Bridge.Str(Bridge.CallKindStr(T->ChunkGetDimensionName, NativePtr, EventKind.ChunkUnloadEvent));
 }
 
 // ==================== Server events ====================
@@ -751,14 +816,14 @@ public sealed unsafe class PacketReceiveEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PacketReceiveEvent(IntPtr ptr) : base(ptr) { }
 
-    public int PacketId => Bridge.CallNameInt(T->PacketGetId, NativePtr, "PacketReceiveEvent");
+    public int PacketId => Bridge.CallKindInt(T->PacketGetId, NativePtr, EventKind.PacketReceiveEvent);
 
     public byte[] Payload
     {
         get
         {
             int len = 0;
-            var data = Bridge.CallNameStr2(T->PacketGetPayload, NativePtr, "PacketReceiveEvent", &len);
+            var data = Bridge.CallKindStr2(T->PacketGetPayload, NativePtr, EventKind.PacketReceiveEvent, &len);
             var result = new byte[len];
             if (len > 0)
             {
@@ -770,7 +835,7 @@ public sealed unsafe class PacketReceiveEvent : Event
         {
             fixed (byte* p = value)
             {
-                Bridge.CallName3(T->PacketSetPayload, NativePtr, "PacketReceiveEvent", p, value.Length);
+                Bridge.CallKind3(T->PacketSetPayload, NativePtr, EventKind.PacketReceiveEvent, p, value.Length);
             }
         }
     }
@@ -779,13 +844,13 @@ public sealed unsafe class PacketReceiveEvent : Event
     {
         get
         {
-            var p = Bridge.CallName(T->PacketGetPlayer, NativePtr, "PacketReceiveEvent");
+            var p = Bridge.CallKindPtr(T->PacketGetPlayer, NativePtr, EventKind.PacketReceiveEvent);
             return p == null ? null : new Player((IntPtr)p);
         }
     }
 
-    public string Address => Bridge.Str(Bridge.CallNameStr(T->PacketGetAddress, NativePtr, "PacketReceiveEvent"));
-    public int SubClientId => Bridge.CallNameInt(T->PacketGetSubClientId, NativePtr, "PacketReceiveEvent");
+    public string Address => Bridge.Str(Bridge.CallKindStr(T->PacketGetAddress, NativePtr, EventKind.PacketReceiveEvent));
+    public int SubClientId => Bridge.CallKindInt(T->PacketGetSubClientId, NativePtr, EventKind.PacketReceiveEvent);
 }
 
 public sealed unsafe class PacketSendEvent : Event
@@ -793,14 +858,14 @@ public sealed unsafe class PacketSendEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PacketSendEvent(IntPtr ptr) : base(ptr) { }
 
-    public int PacketId => Bridge.CallNameInt(T->PacketGetId, NativePtr, "PacketSendEvent");
+    public int PacketId => Bridge.CallKindInt(T->PacketGetId, NativePtr, EventKind.PacketSendEvent);
 
     public byte[] Payload
     {
         get
         {
             int len = 0;
-            var data = Bridge.CallNameStr2(T->PacketGetPayload, NativePtr, "PacketSendEvent", &len);
+            var data = Bridge.CallKindStr2(T->PacketGetPayload, NativePtr, EventKind.PacketSendEvent, &len);
             var result = new byte[len];
             if (len > 0)
             {
@@ -812,7 +877,7 @@ public sealed unsafe class PacketSendEvent : Event
         {
             fixed (byte* p = value)
             {
-                Bridge.CallName3(T->PacketSetPayload, NativePtr, "PacketSendEvent", p, value.Length);
+                Bridge.CallKind3(T->PacketSetPayload, NativePtr, EventKind.PacketSendEvent, p, value.Length);
             }
         }
     }
@@ -821,13 +886,13 @@ public sealed unsafe class PacketSendEvent : Event
     {
         get
         {
-            var p = Bridge.CallName(T->PacketGetPlayer, NativePtr, "PacketSendEvent");
+            var p = Bridge.CallKindPtr(T->PacketGetPlayer, NativePtr, EventKind.PacketSendEvent);
             return p == null ? null : new Player((IntPtr)p);
         }
     }
 
-    public string Address => Bridge.Str(Bridge.CallNameStr(T->PacketGetAddress, NativePtr, "PacketSendEvent"));
-    public int SubClientId => Bridge.CallNameInt(T->PacketGetSubClientId, NativePtr, "PacketSendEvent");
+    public string Address => Bridge.Str(Bridge.CallKindStr(T->PacketGetAddress, NativePtr, EventKind.PacketSendEvent));
+    public int SubClientId => Bridge.CallKindInt(T->PacketGetSubClientId, NativePtr, EventKind.PacketSendEvent);
 }
 
 public sealed unsafe class PluginEnableEvent : Event
@@ -835,7 +900,7 @@ public sealed unsafe class PluginEnableEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PluginEnableEvent(IntPtr ptr) : base(ptr) { }
 
-    public string PluginName => Bridge.Str(Bridge.CallNameStr(T->PluginEventGetPluginName, NativePtr, "PluginEnableEvent"));
+    public string PluginName => Bridge.Str(Bridge.CallKindStr(T->PluginEventGetPluginName, NativePtr, EventKind.PluginEnableEvent));
 }
 
 public sealed unsafe class PluginDisableEvent : Event
@@ -843,7 +908,7 @@ public sealed unsafe class PluginDisableEvent : Event
     private static Bridge.Table* T => Bridge.Raw;
     internal PluginDisableEvent(IntPtr ptr) : base(ptr) { }
 
-    public string PluginName => Bridge.Str(Bridge.CallNameStr(T->PluginEventGetPluginName, NativePtr, "PluginDisableEvent"));
+    public string PluginName => Bridge.Str(Bridge.CallKindStr(T->PluginEventGetPluginName, NativePtr, EventKind.PluginDisableEvent));
 }
 
 public sealed unsafe class ScriptMessageEvent : Event
@@ -884,70 +949,65 @@ internal static class EventFactory
 {
     internal static Event? Create(string eventName, IntPtr eventPtr)
     {
-        Event? e = eventName switch
+        return eventName switch
         {
-            "PlayerJoinEvent" => new PlayerJoinEvent(eventPtr),
-            "PlayerQuitEvent" => new PlayerQuitEvent(eventPtr),
-            "PlayerLoginEvent" => new PlayerLoginEvent(eventPtr),
-            "PlayerChatEvent" => new PlayerChatEvent(eventPtr),
-            "PlayerCommandEvent" => new PlayerCommandEvent(eventPtr),
-            "PlayerMoveEvent" => new PlayerMoveEvent(eventPtr),
-            "PlayerTeleportEvent" => new PlayerTeleportEvent(eventPtr),
-            "PlayerPortalEvent" => new PlayerPortalEvent(eventPtr),
-            "PlayerDeathEvent" => new PlayerDeathEvent(eventPtr),
-            "PlayerInteractEvent" => new PlayerInteractEvent(eventPtr),
-            "PlayerInteractActorEvent" => new PlayerInteractActorEvent(eventPtr),
-            "PlayerRespawnEvent" => new PlayerRespawnEvent(eventPtr),
-            "PlayerDropItemEvent" => new PlayerDropItemEvent(eventPtr),
-            "PlayerGameModeChangeEvent" => new PlayerGameModeChangeEvent(eventPtr),
-            "PlayerItemHeldEvent" => new PlayerItemHeldEvent(eventPtr),
-            "PlayerItemConsumeEvent" => new PlayerItemConsumeEvent(eventPtr),
-            "PlayerKickEvent" => new PlayerKickEvent(eventPtr),
-            "PlayerPickupItemEvent" => new PlayerPickupItemEvent(eventPtr),
-            "PlayerJumpEvent" => new PlayerJumpEvent(eventPtr),
-            "PlayerEmoteEvent" => new PlayerEmoteEvent(eventPtr),
-            "PlayerBedEnterEvent" => new PlayerBedEnterEvent(eventPtr),
-            "PlayerBedLeaveEvent" => new PlayerBedLeaveEvent(eventPtr),
-            "PlayerDimensionChangeEvent" => new PlayerDimensionChangeEvent(eventPtr),
-            "PlayerSkinChangeEvent" => new PlayerSkinChangeEvent(eventPtr),
-            "ActorDamageEvent" => new ActorDamageEvent(eventPtr),
-            "ActorDeathEvent" => new ActorDeathEvent(eventPtr),
-            "ActorExplodeEvent" => new ActorExplodeEvent(eventPtr),
-            "ActorKnockbackEvent" => new ActorKnockbackEvent(eventPtr),
-            "ActorTeleportEvent" => new ActorTeleportEvent(eventPtr),
-            "ActorSpawnEvent" => new ActorSpawnEvent(eventPtr),
-            "ActorRemoveEvent" => new ActorRemoveEvent(eventPtr),
-            "BlockBreakEvent" => new BlockBreakEvent(eventPtr),
-            "BlockPlaceEvent" => new BlockPlaceEvent(eventPtr),
-            "BlockCookEvent" => new BlockCookEvent(eventPtr),
-            "BlockExplodeEvent" => new BlockExplodeEvent(eventPtr),
-            "BlockFormEvent" => new BlockFormEvent(eventPtr),
-            "BlockGrowEvent" => new BlockGrowEvent(eventPtr),
-            "BlockFromToEvent" => new BlockFromToEvent(eventPtr),
-            "BlockPistonExtendEvent" => new BlockPistonExtendEvent(eventPtr),
-            "BlockPistonRetractEvent" => new BlockPistonRetractEvent(eventPtr),
-            "LeavesDecayEvent" => new LeavesDecayEvent(eventPtr),
-            "ChunkLoadEvent" => new ChunkLoadEvent(eventPtr),
-            "ChunkUnloadEvent" => new ChunkUnloadEvent(eventPtr),
-            "ServerCommandEvent" => new ServerCommandEvent(eventPtr),
-            "ServerLoadEvent" => new ServerLoadEvent(eventPtr),
-            "BroadcastMessageEvent" => new BroadcastMessageEvent(eventPtr),
-            "ServerListPingEvent" => new ServerListPingEvent(eventPtr),
-            "PacketReceiveEvent" => new PacketReceiveEvent(eventPtr),
-            "PacketSendEvent" => new PacketSendEvent(eventPtr),
-            "PluginEnableEvent" => new PluginEnableEvent(eventPtr),
-            "PluginDisableEvent" => new PluginDisableEvent(eventPtr),
-            "ScriptMessageEvent" => new ScriptMessageEvent(eventPtr),
-            "MapInitializeEvent" => new MapInitializeEvent(eventPtr),
-            "ThunderChangeEvent" => new ThunderChangeEvent(eventPtr),
-            "WeatherChangeEvent" => new WeatherChangeEvent(eventPtr),
+            "PlayerJoinEvent" => new PlayerJoinEvent(eventPtr) { Kind = EventKind.PlayerJoinEvent },
+            "PlayerQuitEvent" => new PlayerQuitEvent(eventPtr) { Kind = EventKind.PlayerQuitEvent },
+            "PlayerLoginEvent" => new PlayerLoginEvent(eventPtr) { Kind = EventKind.PlayerLoginEvent },
+            "PlayerChatEvent" => new PlayerChatEvent(eventPtr) { Kind = EventKind.PlayerChatEvent },
+            "PlayerCommandEvent" => new PlayerCommandEvent(eventPtr) { Kind = EventKind.PlayerCommandEvent },
+            "PlayerMoveEvent" => new PlayerMoveEvent(eventPtr) { Kind = EventKind.PlayerMoveEvent },
+            "PlayerTeleportEvent" => new PlayerTeleportEvent(eventPtr) { Kind = EventKind.PlayerTeleportEvent },
+            "PlayerPortalEvent" => new PlayerPortalEvent(eventPtr) { Kind = EventKind.PlayerPortalEvent },
+            "PlayerDeathEvent" => new PlayerDeathEvent(eventPtr) { Kind = EventKind.PlayerDeathEvent },
+            "PlayerInteractEvent" => new PlayerInteractEvent(eventPtr) { Kind = EventKind.PlayerInteractEvent },
+            "PlayerInteractActorEvent" => new PlayerInteractActorEvent(eventPtr) { Kind = EventKind.PlayerInteractActorEvent },
+            "PlayerRespawnEvent" => new PlayerRespawnEvent(eventPtr) { Kind = EventKind.PlayerRespawnEvent },
+            "PlayerDropItemEvent" => new PlayerDropItemEvent(eventPtr) { Kind = EventKind.PlayerDropItemEvent },
+            "PlayerGameModeChangeEvent" => new PlayerGameModeChangeEvent(eventPtr) { Kind = EventKind.PlayerGameModeChangeEvent },
+            "PlayerItemHeldEvent" => new PlayerItemHeldEvent(eventPtr) { Kind = EventKind.PlayerItemHeldEvent },
+            "PlayerItemConsumeEvent" => new PlayerItemConsumeEvent(eventPtr) { Kind = EventKind.PlayerItemConsumeEvent },
+            "PlayerKickEvent" => new PlayerKickEvent(eventPtr) { Kind = EventKind.PlayerKickEvent },
+            "PlayerPickupItemEvent" => new PlayerPickupItemEvent(eventPtr) { Kind = EventKind.PlayerPickupItemEvent },
+            "PlayerJumpEvent" => new PlayerJumpEvent(eventPtr) { Kind = EventKind.PlayerJumpEvent },
+            "PlayerEmoteEvent" => new PlayerEmoteEvent(eventPtr) { Kind = EventKind.PlayerEmoteEvent },
+            "PlayerBedEnterEvent" => new PlayerBedEnterEvent(eventPtr) { Kind = EventKind.PlayerBedEnterEvent },
+            "PlayerBedLeaveEvent" => new PlayerBedLeaveEvent(eventPtr) { Kind = EventKind.PlayerBedLeaveEvent },
+            "PlayerDimensionChangeEvent" => new PlayerDimensionChangeEvent(eventPtr) { Kind = EventKind.PlayerDimensionChangeEvent },
+            "PlayerSkinChangeEvent" => new PlayerSkinChangeEvent(eventPtr) { Kind = EventKind.PlayerSkinChangeEvent },
+            "ActorDamageEvent" => new ActorDamageEvent(eventPtr) { Kind = EventKind.ActorDamageEvent },
+            "ActorDeathEvent" => new ActorDeathEvent(eventPtr) { Kind = EventKind.ActorDeathEvent },
+            "ActorExplodeEvent" => new ActorExplodeEvent(eventPtr) { Kind = EventKind.ActorExplodeEvent },
+            "ActorKnockbackEvent" => new ActorKnockbackEvent(eventPtr) { Kind = EventKind.ActorKnockbackEvent },
+            "ActorTeleportEvent" => new ActorTeleportEvent(eventPtr) { Kind = EventKind.ActorTeleportEvent },
+            "ActorSpawnEvent" => new ActorSpawnEvent(eventPtr) { Kind = EventKind.ActorSpawnEvent },
+            "ActorRemoveEvent" => new ActorRemoveEvent(eventPtr) { Kind = EventKind.ActorRemoveEvent },
+            "BlockBreakEvent" => new BlockBreakEvent(eventPtr) { Kind = EventKind.BlockBreakEvent },
+            "BlockPlaceEvent" => new BlockPlaceEvent(eventPtr) { Kind = EventKind.BlockPlaceEvent },
+            "BlockCookEvent" => new BlockCookEvent(eventPtr) { Kind = EventKind.BlockCookEvent },
+            "BlockExplodeEvent" => new BlockExplodeEvent(eventPtr) { Kind = EventKind.BlockExplodeEvent },
+            "BlockFormEvent" => new BlockFormEvent(eventPtr) { Kind = EventKind.BlockFormEvent },
+            "BlockGrowEvent" => new BlockGrowEvent(eventPtr) { Kind = EventKind.BlockGrowEvent },
+            "BlockFromToEvent" => new BlockFromToEvent(eventPtr) { Kind = EventKind.BlockFromToEvent },
+            "BlockPistonExtendEvent" => new BlockPistonExtendEvent(eventPtr) { Kind = EventKind.BlockPistonExtendEvent },
+            "BlockPistonRetractEvent" => new BlockPistonRetractEvent(eventPtr) { Kind = EventKind.BlockPistonRetractEvent },
+            "LeavesDecayEvent" => new LeavesDecayEvent(eventPtr) { Kind = EventKind.LeavesDecayEvent },
+            "ChunkLoadEvent" => new ChunkLoadEvent(eventPtr) { Kind = EventKind.ChunkLoadEvent },
+            "ChunkUnloadEvent" => new ChunkUnloadEvent(eventPtr) { Kind = EventKind.ChunkUnloadEvent },
+            "ServerCommandEvent" => new ServerCommandEvent(eventPtr) { Kind = EventKind.ServerCommandEvent },
+            "ServerLoadEvent" => new ServerLoadEvent(eventPtr) { Kind = EventKind.ServerLoadEvent },
+            "BroadcastMessageEvent" => new BroadcastMessageEvent(eventPtr) { Kind = EventKind.BroadcastMessageEvent },
+            "ServerListPingEvent" => new ServerListPingEvent(eventPtr) { Kind = EventKind.ServerListPingEvent },
+            "PacketReceiveEvent" => new PacketReceiveEvent(eventPtr) { Kind = EventKind.PacketReceiveEvent },
+            "PacketSendEvent" => new PacketSendEvent(eventPtr) { Kind = EventKind.PacketSendEvent },
+            "PluginEnableEvent" => new PluginEnableEvent(eventPtr) { Kind = EventKind.PluginEnableEvent },
+            "PluginDisableEvent" => new PluginDisableEvent(eventPtr) { Kind = EventKind.PluginDisableEvent },
+            "ScriptMessageEvent" => new ScriptMessageEvent(eventPtr) { Kind = EventKind.ScriptMessageEvent },
+            "MapInitializeEvent" => new MapInitializeEvent(eventPtr) { Kind = EventKind.MapInitializeEvent },
+            "ThunderChangeEvent" => new ThunderChangeEvent(eventPtr) { Kind = EventKind.ThunderChangeEvent },
+            "WeatherChangeEvent" => new WeatherChangeEvent(eventPtr) { Kind = EventKind.WeatherChangeEvent },
             _ => null,
         };
-        if (e != null)
-        {
-            e.EventName = eventName;
-        }
-        return e;
     }
 }
 

@@ -8,6 +8,7 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
     <RootNamespace>Endstone.Loader</RootNamespace>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
 </Project>

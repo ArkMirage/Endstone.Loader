@@ -274,6 +274,12 @@ internal static unsafe class Bridge
         public delegate* unmanaged[Cdecl]<void*, int> ItemGetEnchantCount;
         public delegate* unmanaged[Cdecl]<void*, int, byte*> ItemGetEnchantName;
         public delegate* unmanaged[Cdecl]<void*, int, int> ItemGetEnchantLevel;
+        public delegate* unmanaged[Cdecl]<void*, byte*, bool> ItemHasEnchant;
+        public delegate* unmanaged[Cdecl]<void*, byte*, int> ItemGetEnchantLevelById;
+        public delegate* unmanaged[Cdecl]<void*, byte*, int, bool, bool> ItemAddEnchant;
+        public delegate* unmanaged[Cdecl]<void*, byte*, bool> ItemRemoveEnchant;
+        public delegate* unmanaged[Cdecl]<void*, byte*, void> ItemRemoveEnchants;
+        public delegate* unmanaged[Cdecl]<void*, byte*, bool> ItemHasConflictingEnchant;
         public delegate* unmanaged[Cdecl]<void*, byte*> BlockGetType;
         public delegate* unmanaged[Cdecl]<void*, int> BlockGetX;
         public delegate* unmanaged[Cdecl]<void*, int> BlockGetY;
@@ -299,6 +305,14 @@ internal static unsafe class Bridge
         public delegate* unmanaged[Cdecl]<void*, void*> DamageSourceGetActor;
         public delegate* unmanaged[Cdecl]<void*, void*> DamageSourceGetDamagingActor;
         public delegate* unmanaged[Cdecl]<void*, bool> DamageSourceIsIndirect;
+
+        // ---- objects: enchantment ----
+        public delegate* unmanaged[Cdecl]<byte*, void*> EnchantGetById;
+        public delegate* unmanaged[Cdecl]<void*, byte*> EnchantGetId;
+        public delegate* unmanaged[Cdecl]<void*, int> EnchantGetMaxLevel;
+        public delegate* unmanaged[Cdecl]<void*, int> EnchantGetStartLevel;
+        public delegate* unmanaged[Cdecl]<void*, void*, bool> EnchantConflictsWith;
+        public delegate* unmanaged[Cdecl]<void*, void*, bool> EnchantCanEnchantItem;
 
         // ---- objects: sender ----
         public delegate* unmanaged[Cdecl]<void*, byte*> SenderGetName;
@@ -505,6 +519,34 @@ internal static unsafe class Bridge
         fixed (byte* p = buf)
         {
             return fn(obj, p);
+        }
+    }
+
+    internal static int CallIntStr(delegate* unmanaged[Cdecl]<void*, byte*, int> fn, void* obj, string s)
+    {
+        var buf = ToUtf8(s);
+        fixed (byte* p = buf)
+        {
+            return fn(obj, p);
+        }
+    }
+
+    internal static void CallVoidStr(delegate* unmanaged[Cdecl]<void*, byte*, void> fn, void* obj, string s)
+    {
+        var buf = ToUtf8(s);
+        fixed (byte* p = buf)
+        {
+            fn(obj, p);
+        }
+    }
+
+    internal static bool CallBoolStrInt(delegate* unmanaged[Cdecl]<void*, byte*, int, bool, bool> fn, void* obj,
+                                        string s, int i, bool force)
+    {
+        var buf = ToUtf8(s);
+        fixed (byte* p = buf)
+        {
+            return fn(obj, p, i, force);
         }
     }
 

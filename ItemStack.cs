@@ -69,6 +69,52 @@ public sealed unsafe class ItemStack : IDisposable
     public string GetEnchantName(int index) => _isItemActor ? "" : Bridge.Str(T->ItemGetEnchantName(_ptr, index));
     public int GetEnchantLevel(int index) => _isItemActor ? 0 : T->ItemGetEnchantLevel(_ptr, index);
 
+    /// <summary>Whether the item carries the given enchantment (id like "minecraft:sharpness").</summary>
+    public bool HasEnchant(string id) => !_isItemActor && Bridge.CallBoolStr(T->ItemHasEnchant, _ptr, id);
+
+    /// <summary>Gets the level of the given enchantment, or 0 when absent.</summary>
+    public int GetEnchantLevel(string id) => _isItemActor ? 0 : Bridge.CallIntStr(T->ItemGetEnchantLevelById, _ptr, id);
+
+    /// <summary>Adds the enchantment at the given level. When force is false the
+    /// level must be within the enchantment's start..max range. Conflicts with
+    /// existing enchantments are not checked; use HasConflictingEnchant first.</summary>
+    public bool AddEnchant(string id, int level, bool force = false)
+        => !_isItemActor && Bridge.CallBoolStrInt(T->ItemAddEnchant, _ptr, id, level, force);
+
+    /// <summary>Removes the enchantment if present. Returns true if it was removed.</summary>
+    public bool RemoveEnchant(string id) => !_isItemActor && Bridge.CallBoolStr(T->ItemRemoveEnchant, _ptr, id);
+
+    /// <summary>Removes all enchantments from the item.</summary>
+    public void RemoveEnchants()
+    {
+        if (!_isItemActor)
+        {
+            Bridge.CallVoidStr(T->ItemRemoveEnchants, _ptr, "");
+        }
+    }
+
+    /// <summary>Whether any enchantment on the item conflicts with the given one.</summary>
+    public bool HasConflictingEnchant(string id)
+        => !_isItemActor && Bridge.CallBoolStr(T->ItemHasConflictingEnchant, _ptr, id);
+
+    /// <summary>All enchantments applied to the item, as (enchantment, level) pairs.</summary>
+    public IReadOnlyList<ItemEnchantment> Enchantments
+    {
+        get
+        {
+            var list = new List<ItemEnchantment>(EnchantCount);
+            for (var i = 0; i < EnchantCount; i++)
+            {
+                var id = GetEnchantName(i);
+                if (Enchantment.Get(id) is { } enchant)
+                {
+                    list.Add(new ItemEnchantment(enchant, GetEnchantLevel(i)));
+                }
+            }
+            return list;
+        }
+    }
+
     /// <summary>Map meta: whether this item is a map bound to a server map view.</summary>
     public bool HasMapView => !_isItemActor && T->ItemHasMapView(_ptr);
 
